@@ -36,13 +36,13 @@ face_recognize_mode = RecognizeModel(config.DATASET_DIR,
 
 app = FastAPI()
 
-# Thêm middleware CORSMiddleware để xử lý CORS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cho phép tất cả các origin (Cần cấu hình chính xác trong môi trường sản xuất)
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Cho phép tất cả các phương thức
-    allow_headers=["*"],  # Cho phép tất cả các header
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
 
@@ -57,14 +57,14 @@ async def upload_images(files: list[UploadFile] = File(...), folder_name: str = 
     img_path = os.path.join(save_directory, folder_name)
 
     if not os.path.exists(img_path):
-        os.makedirs(img_path)  # Tạo thư mục nếu chưa tồn tại
+        os.makedirs(img_path)  
 
     for file in files:
         contents = await file.read()
-        file_path = os.path.join(img_path, file.filename)  # Tạo đường dẫn lưu trữ
+        file_path = os.path.join(img_path, file.filename)  
 
         with open(file_path, "wb") as f:
-            f.write(contents)  # Ghi nội dung của tệp tin vào thư mục
+            f.write(contents) 
 
     return {"message": f"{len(files)} images uploaded and saved successfully in the datasets folder"}
 
