@@ -19,6 +19,7 @@ app_logger = Logger(log_file='app.log')
 # Import Fastapi framework
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 # Import AI model
 from recognize_predict import RecognizeModel
@@ -35,35 +36,67 @@ face_recognize_mode = RecognizeModel(config.DATASET_DIR,
 
 app = FastAPI()
 
+# Thêm middleware CORSMiddleware để xử lý CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Cho phép tất cả các origin (Cần cấu hình chính xác trong môi trường sản xuất)
+    allow_credentials=True,
+    allow_methods=["*"],  # Cho phép tất cả các phương thức
+    allow_headers=["*"],  # Cho phép tất cả các header
+)
+
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
 
-@app.post("/upload_image/")
-async def upload_image(file: UploadFile = File(...)):
+@app.post("/upload")
+async def upload_images(files: list[UploadFile] = File(...), folder_name: str = None):
+    save_directory = config.DATASET_DIR 
+    
+    img_path = os.path.join(save_directory, folder_name)
+
+    if not os.path.exists(img_path):
+        os.makedirs(img_path)  # Tạo thư mục nếu chưa tồn tại
+
+    for file in files:
+        contents = await file.read()
+        file_path = os.path.join(img_path, file.filename)  # Tạo đường dẫn lưu trữ
+
+        with open(file_path, "wb") as f:
+            f.write(contents)  # Ghi nội dung của tệp tin vào thư mục
+
+    return {"message": f"{len(files)} images uploaded and saved successfully in the datasets folder"}
+
+@app.post("/detect")
+async def detect(file: UploadFile = File(...)):
     contents = await file.read()
 
     image_bytes = BytesIO(contents)
     image = Image.open(image_bytes)
+
+    if image.mode == 'RGBA':
+        image = image.convert('RGB')
+
     np_image = np.array(image)
 
-    result_anti = face_anti_model.predict_image(image=np_image)
+    result_anti = await face_anti_model.predict_image(image=np_image)
 
     if result_anti['label'] == 0:
         app_logger.log_infor(result_anti)
 
-        return JSONResponse(content={"message": result_anti}, status_code=200)
+        return JSONResponse(content={"data": result_anti}, status_code=200)
     
     else :
         result_recognize = face_recognize_mode.recognize_predict(np_image)
+        result_recognize['image_box'] = result_anti['image_box']
 
-        if result_recognize['confidence'] < 87: 
+        if result_recognize['confidence'] < 85: 
             print("Low confidence")
             result_recognize['name'] = 'UNKNOWN'
 
         app_logger.log_infor(result_recognize)
 
-        return JSONResponse(content={"message": result_recognize}, status_code=200)
+        return JSONResponse(content={"data": result_recognize}, status_code=200)
 
 

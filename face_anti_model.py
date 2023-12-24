@@ -33,24 +33,26 @@ class FaceAntiModel():
         self.anti_spoof_model  = AntiSpoofPredict(device_id=0) # Device 0 is use gpu
         self.croper = CropImage()
         self.model_dir = model_dir
+        self.dirs    = os.listdir(self.model_dir)
 
-    def check_image(self, image):
+    async def check_image(self, image):
         height, width, channel = image.shape
         if width/height != 3/4:
             return False
         else:
             return True
         
-    def predict_image(self, image):
-        result = self.check_image(image)
-        if result is False:
-            return
+    async def predict_image(self, image):
+        # result = await self.check_image(image)
+        # if result is False:
+        #     print("SAIIIIIIIIIIIIIII")
+        #     return
         image_bbox = self.anti_spoof_model.get_bbox(image)
         prediction = np.zeros((1, 3))
         test_speed = 0
         # sum the prediction from single model's result
-        for model_name in os.listdir(self.model_dir):
-            h_input, w_input, model_type, scale = parse_model_name(model_name)
+        for model_name in self.dirs:
+            h_input, w_input, model_type, scale =  parse_model_name(model_name)
             param = {
                 "org_img": image,
                 "bbox": image_bbox,
@@ -70,9 +72,9 @@ class FaceAntiModel():
         value = prediction[0][label]/2
 
         if label == 1:
-            result_text = {'Text':'RealFace Score: {:.2f}'.format(value), 'label': 1}
+            result_text = {'name':'RealFace : {:.2f}'.format(value), 'label': 1, 'image_box':image_bbox}
         else:
-            result_text = {'Text':'FakeFace Score: {:.2f}'.format(value), 'label': 0}
+            result_text = {'name':'FakeFace : {:.2f}'.format(value), 'label': 0, 'image_box':image_bbox}
         
         return result_text
 
