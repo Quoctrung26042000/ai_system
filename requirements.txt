@@ -1,0 +1,17 @@
+easydict
+numpy
+tqdm
+torchvision
+torch
+opencv_python
+Pillow
+tensorboardX
+pandas
+gdown
+tensorflow
+keras
+mtcnn
+retina-face
+fire
+gunicorn
+Deprecated
