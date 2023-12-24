@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tqdm import tqdm
+
+import sys
+sys.path.append('./deep_face')
 from deepface import DeepFace
 
 # Function to extract features from images using DeepFace
@@ -14,20 +17,23 @@ def extract_features(img_path, model_name='Facenet512'):
 def main(data_dir, model_name):
     # List all directories (persons)
     dirs = os.listdir(data_dir)
-    print(dirs)
-
     data = []
-    for person_name in tqdm(dirs):
-        for img in os.listdir(os.path.join(data_dir, person_name)):
-            features = extract_features(os.path.join(data_dir, person_name, img), model_name=model_name)
-            features = [person_name] + features.tolist()
+    for dir in tqdm(dirs):
+        for img in os.listdir(os.path.join(data_dir, dir)):
+            features = extract_features(os.path.join(data_dir, dir, img))
+            features.insert(0, dir)
             data.append(features)
 
-    # Creating a DataFrame to store the extracted features
-    column_names = ['person name'] + [f'f{i+1}' for i in range(512)]
-    df = pd.DataFrame(data, columns=column_names)
-    df.to_csv('face_features.csv', index=False)
-    df.head()
+
+    column_names = ['person name']
+    for i in range(512):
+        column_names.append(f'f{i+1}')
+
+    df_org = pd.DataFrame(data, columns=column_names)
+    df_org.to_csv('face_features.csv', index=False)
+
+    df = df_org.replace(dirs, [i for i in range(len(dirs))])
+    df = df.sample(frac=1)
 
     x_train = df.iloc[:, 1:]
     y_train = df['person name']
