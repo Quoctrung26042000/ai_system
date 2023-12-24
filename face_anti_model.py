@@ -45,7 +45,6 @@ class FaceAntiModel():
     async def predict_image(self, image):
         # result = await self.check_image(image)
         # if result is False:
-        #     print("SAIIIIIIIIIIIIIII")
         #     return
         image_bbox = self.anti_spoof_model.get_bbox(image)
         prediction = np.zeros((1, 3))
