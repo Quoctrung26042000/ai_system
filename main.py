@@ -10,7 +10,6 @@ from PIL import Image
 import numpy as np
 import config
 warnings.filterwarnings('ignore')
-import service
 from datetime import datetime
 
 # Import Log
@@ -162,7 +161,7 @@ async def detect(file: UploadFile = File(...)):
         #     current_time = datetime.now()
 
         #     # Attendance Student 
-        #     connection = await service.connect_to_db()
+        #     connection = await utils.connect_to_db()
         #     query_update = """
         #     UPDATE attendance
         #     SET check_in = $1, status = $2
