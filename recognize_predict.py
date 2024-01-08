@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+tf.get_logger().setLevel('INFO')
 from tqdm import tqdm
 import sys
 import config 

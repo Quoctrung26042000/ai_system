@@ -28,6 +28,10 @@ from recognize_predict import RecognizeModel
 
 from face_anti_model import FaceAntiModel
 
+from resources import strings
+
+import utils
+
 # Init model 
 face_anti_model = FaceAntiModel(config.ANTI_MODEL_DIR)
 
@@ -52,26 +56,6 @@ app.add_middleware(
     allow_headers=["*"],  
 )
 
-import unicodedata
-def normalize_folder_name(folder_name):
-    return ''.join(c for c in unicodedata.normalize('NFD', folder_name) if unicodedata.category(c) != 'Mn')
-
-# class FileChangeHandler(FileSystemEventHandler):
-#     def on_modified(self, event):
-#         if event.src_path.endswith('./weights/model.h5'):
-#             print("Change detected in model.h5, restarting server...")
-#             subprocess.run("systemctl restart ai.service", shell=True)
-#             # subprocess.run(["pkill", "uvicorn"])  # Restart the server on Linux (Update this based on your system)
-
-# def start_watching():
-#     event_handler = FileChangeHandler()
-#     observer = Observer()
-#     observer.schedule(event_handler, path='.', recursive=True)
-#     observer.start()
-
-# @app.on_event("startup")
-# def startup_event():
-#     start_watching()
 
 import subprocess
 @app.post("/train_model")
@@ -125,7 +109,7 @@ def read_root():
 async def upload_images(files: list[UploadFile] = File(...), folder_name: str = None):
     save_directory = config.DATASET_DIR 
 
-    folder_name_normalized = normalize_folder_name(folder_name)
+    folder_name_normalized = utils.normalize_folder_name(folder_name)
     
     img_path = os.path.join(save_directory, folder_name_normalized)
 
@@ -143,6 +127,12 @@ async def upload_images(files: list[UploadFile] = File(...), folder_name: str = 
 
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
+
+    global face_recognize_model
+    if face_recognize_model is None:
+        app_logger.log_infor(message=strings.MODEL_NOT_TRAIN)
+        return {"message": strings.MODEL_NOT_TRAIN}, 404
+    
     contents = await file.read()
 
     image_bytes = BytesIO(contents)
@@ -167,7 +157,7 @@ async def detect(file: UploadFile = File(...)):
         app_logger.log_infor(result_recognize['confidence'])
         if result_recognize['confidence'] < 75: 
             # print("Low confidence")
-            result_recognize['name'] = 'UNKNOWN'
+            result_recognize['name'] = strings.PEOPLE_UNKNOWN
         # else :
         #     current_time = datetime.now()
 
