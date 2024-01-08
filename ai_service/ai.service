@@ -1,0 +1,12 @@
+[Unit]
+Description=AI RECOGNIZE
+
+[Service]
+User=root
+WorkingDirectory=/home/ubuntu/trung_work_sapce
+ExecStart=/home/ubuntu/trung_work_sapce/ai_env/bin/uvicorn main:app
+#Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -10,6 +10,8 @@ from PIL import Image
 import numpy as np
 import config
 warnings.filterwarnings('ignore')
+import service
+from datetime import datetime
 
 # Import Log
 from log.logger import Logger
@@ -34,6 +36,11 @@ face_recognize_mode = RecognizeModel(config.DATASET_DIR,
                                      weight_dir=config.MODEL_WEIGHT_DIR,
                                      model_name=config.MODEL_NAME['facenet'])
 
+import subprocess
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
 app = FastAPI()
 
 
@@ -45,6 +52,70 @@ app.add_middleware(
     allow_headers=["*"],  
 )
 
+import unicodedata
+def normalize_folder_name(folder_name):
+    return ''.join(c for c in unicodedata.normalize('NFD', folder_name) if unicodedata.category(c) != 'Mn')
+
+# class FileChangeHandler(FileSystemEventHandler):
+#     def on_modified(self, event):
+#         if event.src_path.endswith('./weights/model.h5'):
+#             print("Change detected in model.h5, restarting server...")
+#             subprocess.run("systemctl restart ai.service", shell=True)
+#             # subprocess.run(["pkill", "uvicorn"])  # Restart the server on Linux (Update this based on your system)
+
+# def start_watching():
+#     event_handler = FileChangeHandler()
+#     observer = Observer()
+#     observer.schedule(event_handler, path='.', recursive=True)
+#     observer.start()
+
+# @app.on_event("startup")
+# def startup_event():
+#     start_watching()
+
+import subprocess
+@app.post("/train_model")
+def train_model():
+    try:
+        # Construct the command to run the train.py script with the provided data_dir
+        command = f"./ai_env/bin/python train_face_recognize.py --data_dir=datasets"
+        
+        # Run the script using subprocess
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+
+        # Assuming face_recognize_model is the global RecognizeModel instance
+        global face_recognize_model
+        face_recognize_model = RecognizeModel(config.DATASET_DIR,
+                                                weight_dir=config.MODEL_WEIGHT_DIR,
+                                                model_name=config.MODEL_NAME['facenet'])
+
+        # command_service = f"systemctl restart ai.service"
+        
+        if process.returncode == 0:
+            # Run the script using subprocess
+            # process_service = subprocess.Popen(command_service, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # process_service.communicate()
+            return {"message": "Training completed successfully!", "stdout": stdout.decode(), "stderr": stderr.decode()}, 200
+        else:
+            return {"message": "Training failed!", "stdout": stdout.decode(), "stderr": stderr.decode()}, 500
+    except Exception as e:
+        return {"message": f"Error during training: {str(e)}"}, 500
+    
+@app.post("/deploy_new_model")
+def deploy_new_model():
+    try:
+    # Construct the command to run the train.py script with the provided data_dir
+        command = f"systemctl restart ai.service"
+        
+        # Run the script using subprocess
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+
+        return {"message": "Deploy successfully!", "stdout": stdout.decode(), "stderr": stderr.decode()}, 200
+    except Exception as e:
+        return {"message": f"Error during training: {str(e)}"}, 500
+
 
 @app.get("/")
 def read_root():
@@ -53,8 +124,10 @@ def read_root():
 @app.post("/upload")
 async def upload_images(files: list[UploadFile] = File(...), folder_name: str = None):
     save_directory = config.DATASET_DIR 
+
+    folder_name_normalized = normalize_folder_name(folder_name)
     
-    img_path = os.path.join(save_directory, folder_name)
+    img_path = os.path.join(save_directory, folder_name_normalized)
 
     if not os.path.exists(img_path):
         os.makedirs(img_path)  
@@ -90,11 +163,38 @@ async def detect(file: UploadFile = File(...)):
     else :
         result_recognize = face_recognize_mode.recognize_predict(np_image)
         result_recognize['image_box'] = result_anti['image_box']
-
-        if result_recognize['confidence'] < 85: 
-            print("Low confidence")
+        # print('confidence', result_recognize['confidence'])
+        app_logger.log_infor(result_recognize['confidence'])
+        if result_recognize['confidence'] < 75: 
+            # print("Low confidence")
             result_recognize['name'] = 'UNKNOWN'
+        # else :
+        #     current_time = datetime.now()
 
+        #     # Attendance Student 
+        #     connection = await service.connect_to_db()
+        #     query_update = """
+        #     UPDATE attendance
+        #     SET check_in = $1, status = $2
+        #     WHERE student_id = $3
+        #     AND Date(create_at) = CURRENT_DATE
+        #     RETURNING student_id, check_in
+        #     """
+        #     query_search= """
+        #     SELECT name 
+        #     FROM student 
+        #     WHERE id = $1
+        #     """
+        #     student_update = await connection.fetchrow(query_update,
+        #                                           current_time,
+        #                                           1,
+        #                                           int(result_recognize['name']))
+            
+        #     student = await connection.fetchrow(query_search,
+        #                                             student_update['student_id'])
+            
+        #     result_recognize['name'] = student['name']
+        
         app_logger.log_infor(result_recognize)
 
         return JSONResponse(content={"data": result_recognize}, status_code=200)
